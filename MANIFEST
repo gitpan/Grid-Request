@@ -10,6 +10,7 @@ Makefile.PL
 examples/example1.pl
 examples/example2.pl
 MANIFEST
+Changes
 VERSION
 t/01-load_htcrequest.t
 t/02-load_param.t

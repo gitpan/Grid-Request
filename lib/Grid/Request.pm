@@ -105,7 +105,7 @@ by specifying the 'config' parameter to the constructor:
 Another way of specifying an alternate configuration is to define
 the GRID_CONFIG environment variable.
 
-=head2 Class and object methods
+=head1 CLASS AND OBJECT METHODS
 
 =over 4
 
@@ -181,7 +181,7 @@ sub new {
     # Here we separate our arguments to route them to the right class.
     my $command_args = $mapper->( sort keys %comm_meths );
 
-    # $config will hold the location of the configuration file for the,
+    # $config will hold the location of the configuration file for the
     # module, which holds the logger configuration, etc...
     # The user may specify it with a "config" parameter in the
     # constructor.
@@ -195,9 +195,9 @@ sub new {
 # Private method only. Used to configure logging.
 sub _init_config_logger {
     my $config = shift;
-    # TODO: Since Grid::HTC already parsed the default config file, use
+    # TODO: Since Grid::Request::HTC already parsed the default config file, use
     # an accessor to get that config object rather than reparsing it
-    # here. This will involve adding an additional method in Grid::HTC.
+    # here. This will involve adding an additional method in Grid::Request::HTC.
     my $default_cfg_obj = Config::IniFiles->new( -file => $default_config );
     my ($cfg, $same_configs);
     if (defined $config && ($config eq $default_config)) {
@@ -210,15 +210,15 @@ sub _init_config_logger {
 
     # Parse the location of the logger configuration and initialize
     # Log4perl, if it has not already been initialized.
-    my $logger_conf = $cfg->val($section, "Log4perlConf");
+    my $logger_conf = $cfg->val($section, "log4perl-conf");
     Log::Log4perl->init_once($logger_conf);
 
-    # The currently installed version of Log::Log4perl (0.34) exhibits
+    # TODO: The currently installed version of Log::Log4perl (0.34) exhibits
     # a problem when you check the return value of init. Per the perldoc
     # documentation, you should be able to do an "or die..." on the init
     # call, but it fails every time then. Check later releases, and if it's
     # fixed, install and uncomment the next line.
-    # or croak "Could not initialize logging with $logger_conf.";
+    #    or croak "Could not initialize logging with $logger_conf.";
     $logger = get_logger(__PACKAGE__);
 
     return $cfg;
@@ -395,35 +395,37 @@ order in which parameters are added. They are reassembled at runtime on the grid
 the same order that they were added...
 
 B<Parameters:> If the number of arguments is 1, then it will be considered to
-be a simple, "anonymous" parameter... 
-When called with a single scalar argument, no logic is
-attempted to interpret the string provided. The module simply adds the
-specified parameter verbatim to the list of parameters when building the
-command line to invoke on the grid. 
-If 3 parameters are passed, then they are read as "key", "value", "type". The
-type can be either "ARRAY", "DIR", "PARAM", "FILE", or "TEMPFILE"
-(the default is "PARAM" when less than 3 arguments are passed). The type is
-used in the following way to aid in the parallelization of processes: If ARRAY
-is used, the job will be iterated over the elements of the array, with the
-value of the parameter being changed to the next element of the array each
-time. The array must be an array of simple strings passed in as an array
-reference to VALUE. Newlines will be stripped. Note: Nested data structures
-will not be respected. If DIR is specified, the file contents of the directory
-will be iterated over. If a directory contains 25 files, then there will be at
-least 25 jobs, with the name of each file being a parameter value for each
-invocation. If FILE is specified, then the VALUE specified in the method call
+be a simple, "anonymous" parameter and ...  When called with a single scalar
+argument, no logic is attempted to interpret the string provided. The module
+simply adds the specified string verbatim to the list of parameters when
+building the command line to invoke on the grid.  If 3 parameters are passed,
+then they are read as "key", "value", "type". The parameter 'type' can be
+either "ARRAY", "DIR", "PARAM", or "FILE" (the default is "PARAM").
+
+The 'type' is used in the following way to aid in the parallelization of
+processes: If ARRAY is used, the job will be iterated over the elements of the
+array, with the value of the parameter being changed to the next element of the
+array each time. The array must be an array of simple strings passed in as an
+array reference to 'value'. Newlines will be stripped.  Note: Nested data
+structures will not be respected.
+
+If "DIR" is specified as the 'type', the file contents of the directory
+specified by the 'value' will be iterated over.  If the directory contains 25
+files, then there will be at least 25 invocations of the executable on the grid
+( one per file) with the name of each file substituted for the '$(Name)' token
+each time. Note that hidden files and directories are not counted and the
+directory is NOT scanned recursively.
+
+If "FILE" is specified, then the 'value' specified in the method call
 will be interpreted as the path to a file containing entries to iterate over.
 The file may contain hundreds of entries (1 per line) to generate a
-corresponding number of jobs. TEMPFILE works similarly to FILE, except that the
-HTC system will delete, or clean up the file when the request has finished
-being processed. Use with caustion. Finally, PARAM, the default type,
-provides simple parameter support and no iteration will occur.
+corresponding number of jobs.
 
 If greater clarity and flexibility is desired, one may wish to pass named
 parameters in a hash reference instead:
 
-  $obj->add_param( { key   => "--someparam",
-                     value => "somevalue",
+  $obj->add_param( { key   => '--someparam=$(Name)',
+                     value => "/path/to/directory",
                      type  => "DIR",
                    });
 
@@ -454,12 +456,12 @@ Examples:
 
    DIR
       $request->add_param({ type   => "DIR",
-                            key    => "--filepath=$(Name)',
+                            key    => '--filepath=$(Name)',
                             value  => "/path/to/some/directory",
                          });
    ARRAY
       $request->add_param({ type   => "ARRAY",
-                            key    => "--element=$(Name)',
+                            key    => '--element=$(Name)',
                             value  => \@array,
                          });
 
@@ -525,12 +527,13 @@ will be called for the request.
 B<Parameters:> With no parameters, this method functions as a getter. With one
 parameter, the method sets the executable. Currently, this module does not
 attempt to verify whether the exeutable is actually present or whether
-permissions on the executable allow it to be called by the DCE.
+permissions on the executable allow it to be invoked by the user on grid
+machines.
 
 B<Returns:> The currently set executable (when called with no arguments).
 
 
-=item $obj->email([$command]);
+=item $obj->email([$email_address]);
 
 B<Description:> This method is used to set or retrieve the email of the user
 submitting the request. The email is important for notifications and for
@@ -551,9 +554,9 @@ B<Description:> Retrieve the finish time of the request.
 
 B<Parameters:> None.
 
-B<Returns:> The ending time of the request (the time the DCE finished
-processing the request), or undef if the end_time has not yet been
-established.
+B<Returns:> The ending time of the request (the time the grid finished
+processing the request), or undef if the ending time has not yet been
+determined.
 
 
 =item $obj->error([errorfile])
@@ -561,12 +564,19 @@ established.
 B<Description:> This method allows the user to set, or if the request has not
 yet been submitted, to reset the error file. The error file will be the place
 where all STDERR from the invocation of the executable will be written to. This
-file should be in a globally accessible location on the filesystem. The
-attribute may not be changed with this method once the request has been
-submitted.
+file should be in a globally accessible location on the filesystem such that
+grid execution machines may create the files. The attribute may not be changed
+with this method once the request has been submitted.
 
 B<Parameters:> To set the error file, call this method with one parameter,
-which should be the path to the file where STDERR is to be written.
+which should be the path to the file where STDERR is to be written.  Note that
+when submitting array jobs (with the use of the times() method or with
+Master/Worker parameters through add_param()), one can also use the $(Index)
+token when specifying the error path. The token will be replaced with the
+grid's task ID number. For example, if a request generated 100 grid jobs, then
+an error path containing '/path/to/directory/job_$(Index).err' will result in
+STDERR files numbered job_1.err, job_2.err, ..., job_100.err in
+/path/to/directory.
 
 B<Returns:> When called with no arguments, this method returns the currently
 set error file, or undef if not yet set.
@@ -575,11 +585,11 @@ set error file, or undef if not yet set.
 =item $obj->getenv([1]);
 
 B<Description:> The getenv method is used to set whether the user's environment
-should be replicated to the DCE or not. To replicate your environment, call
+should be replicated to the grid or not. To replicate your environment, call
 this method with an argument that evaluates to true. Calling it with a 0
 argument, or an expression that evaluates to false, will turn off environment
 replication. The default is NOT to replicate the user environment across the
-DCE.
+grid.
 
 B<Parameters:> This method behaves as a getter when called with no arguments.
 If called with 1, or more arguments, the first will be used to set the
@@ -655,27 +665,30 @@ B<Parameters:> The first parameter will be used to set (or reset)
 the project attribute for the request, as long as the request has not
 been submitted.
 
-B<Returns:> The currently set project (if called with no parameters).
+B<Returns:> The currently set project (if called with no arguments).
 
 
 =item $obj->input([path]);
 
-B<Description:>
+B<Description:> Used to specify a file to be used as the STDIN for
+the executable on the grid.
 
-B<Parameters:>
+B<Parameters:> A scalar containing the globally accessible path to
+the file to use for STDIN.
 
-B<Returns:>
+B<Returns:> The currently set input file if called as a getter with no
+arguments, or undef if not yet set.
 
 
 =item $obj->initialdir([path]);
 
-B<Description:> This method sets the directory where the DCE will be
+B<Description:> This method sets the directory where the grid will be
 chdir'd to before invoking the executable. This is an optional parameter,
-and if the user leaves it unspecified, the default will be that the DCE
-will be chdir'd to the root directory "/" before beginning the request.
-Use of initialdir is encouraged to promote use of relative paths.
+and if the user leaves it unspecified, the default will be that the grid
+job will be chdir'd to the root directory "/" before beginning the request.
+Use of initialdir is encouraged to promote the use of relative paths.
 
-B<Parameters:> A scalar holding the path to the directory the DCE should
+B<Parameters:> A scalar holding the path to the directory the grid should
 chdir to before invoking the executable.
 
 B<Returns:> When called with no arguments, returns the currently set
@@ -793,13 +806,19 @@ sub new_command {
 =item $obj->output([path]);
 
 B<Description:> Sets the path for the output file, which would hold all of
-the output directed to STDOUT by the request on the DCE. This method functions
+the output directed to STDOUT by the request on the grid. This method functions
 as a setter and getter.
 
-B<Parameters:> A path to a file. The file must be globally accessible on
-the filesystem in order to work, otherwise, the location will not be accessible
-to compute nodes on the DCE. This attribute may not be changed once a request
-is submitted.
+B<Parameters:> A path to a file. The file must be globally accessible on the
+filesystem in order to work, otherwise, the location will not be accessible to
+compute nodes on the grid. This attribute may not be changed once a request is
+submitted. Note that when submitting array jobs (with the use of the times()
+method or with Master/Worker parameters through add_param()), one can also use
+the $(Index) token when specifying the output path. The token will be replaced
+with the grid's task ID number. For example, if a request generated 100 grid
+jobs, then an output path containing '/path/to/directory/job_$(Index).out' will
+result in STDOUT files numbered job_1.out, job_2.out, ..., job_100.out in
+/path/to/directory.
 
 B<Returns:> When called with no arguments, the method returns the currently
 set path for the output file, or undef if not yet set.
@@ -835,7 +854,7 @@ request to the grid should run under. Users may pass this method a list of
 strings that are in "key=value" format. The keys will be converted into
 environment variables set to "value" before execution of the command is begun.
 Normally, a request will not copy the user's environment in this way.  The only
-time the environment is established on the DCE will be if the user invokes the
+time the environment is established on the grid will be if the user invokes the
 getenv method or sets it with this method. This  method allows the user to
 override the environment with his or her own notion of what the environment
 should be at runtime on the grid.

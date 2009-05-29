@@ -20,8 +20,8 @@ useful to the Grid modules.
 =cut
 
 use strict;
-use Config::IniFiles;
 use Carp;
+use Config::IniFiles;
 use File::Which;
 use Log::Log4perl qw(:easy :levels);
 

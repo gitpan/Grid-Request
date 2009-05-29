@@ -2,15 +2,24 @@
 
 use strict;
 use Data::Dumper;
+use Grid::Request::HTC;
 use Log::Log4perl qw(:easy);
+use Config::IniFiles;
 use Sys::Hostname;
 Log::Log4perl->easy_init($DEBUG);
 
 my $logger = Log::Log4perl->get_logger();
+# Deterine what host we are running on.
 my $host = hostname;
-my $grid_type = "sge";
-
 $logger->info("Running on $host");
+
+# Load which grid we are using from the configuration file.
+my $config_file = Grid::Request::HTC->config();
+# The [section] heading in the configuration file.
+my $section = $Grid::Request::HTC::config_section;
+my $config = Config::IniFiles->new(-file => $config_file);
+my $grid_type = $config->val($section, "drm");
+
 $logger->debug("Grid type: $grid_type");
 my $MW_PARAM_DELIMITER = ":";
 
@@ -113,8 +122,8 @@ sub execute {
 
 sub check_arguments {
     if (scalar @ARGV < 3) {
+        $logger->fatal("An invalid number of parameters was specified.");
         print_usage();
-        $logger->logdie("An invalid number of parameters was specified.");
     }
     # Check for a valid block size
     my $block_size = $ARGV[1];
@@ -146,8 +155,11 @@ sub get_task_id {
 }
 
 sub print_usage {
-    print "Usage:\n";
+    print "Usage:\n\n";
     print "$0 <remote_executable> <block_size> <MW_param_1> <MW_param_2> ... <MW_param_N>\n\n\n";
+    print "Example:\n";
+    print "$0 <remote_executable> 100 param:--parameter 'file:/path/to/file:$(Name)'\n\n\n";
+    exit 1;
 }
 
 sub validate_mw_params {
@@ -155,20 +167,28 @@ sub validate_mw_params {
     $logger->debug("Received " . scalar(@$param_ref) . " parameters to examine.");
 
     foreach my $param (@$param_ref) {
-        my @components = split(/:/, $param);
-        if (scalar(@components) == 3) {
-            my ($type, $value, $key) = split(/$MW_PARAM_DELIMITER/, $param);
+        my @components = split(/$MW_PARAM_DELIMITER/, $param);
+        if (scalar(@components) == 2) {
+            my ($type, $value) = @components;
+            $type = uc($type);
+            if ($type ne "PARAM") {
+                $logger->logdie("Only 2 fields for MW parameter found: \"$param\"");
+            } 
+        } elsif (scalar(@components) == 3) {
+            my ($type, $value, $key) = @components;
             $type = uc($type);
             if ($type eq "DIR") {
                 # If it's not a directory, throw an exception
                 if (! -d $value) {
                     $logger->logdie("MW parameter $param specified an invalid directory: \"$value\".");
                 }
-            } elsif ($type eq "FILE" || $type eq "FASTA") {
+            } elsif ($type eq "FILE") {
                 # If it's not a file or it's not readable, throw an exception...
                 if (! -f $value || ! -r $value) {
                     $logger->logdie("MW parameter $param specified a file that doesn't exist or isn't readable.");
                 }
+            } elsif ($type eq "PARAM") {
+                $logger->logdie("Only 2 fields are allowed for a type of PARAM.");
             } else {
                 # Throw an exception (Unrecognized 
                 $logger->logdie("Unrecognized parameter type of \"$type\".");
@@ -188,11 +208,14 @@ sub get_arguments_for_param {
     # This should be dynamic. Dynamically load a module that computes the array
     # at runtime.
     if ($type eq "PARAM") {
+        # So for PARAM type arguments, there will only be 2 fields, like so:
+        # param:string because there is nothing to iterate over. Therefore, the
+        # $key should be undef and is ignored.
         my @args;
         # TODO: There is some clever way to do this (x $blocksize), it just escapes
         # me right now
         for (my $arg_index = 0; $arg_index < $blocksize; $arg_index++) {
-            push (@args, $key);
+            push (@args, $value);
         }
         $arg_ref = \@args;
     } elsif ($type eq "DIR") {

@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 
-$Id: VERSION 235 2008-05-14 18:39:36Z vfelix $
+$Id: VERSION 2027 2009-05-29 13:57:23Z vfelix $
 
 
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '0.1';
+$VERSION = '0.2';
