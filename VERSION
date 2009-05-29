@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+$Id: VERSION 235 2008-05-14 18:39:36Z vfelix $
+
+
+
+use strict;
+use vars qw($VERSION);
+$VERSION = '0.1';
