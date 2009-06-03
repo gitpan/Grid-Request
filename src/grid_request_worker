@@ -58,9 +58,48 @@ foreach my $param (@mw_params) {
     # Continue building our array of arrays.
     push (@arg_groups, $arg_ref);
 }
+# Chop all the arg_groups according to the group with the smallest size
+@arg_groups = limit_arguments(\@arg_groups);
 execute($executable, \@arg_groups);
 
 #############################################################################
+
+sub limit_arguments {
+    my $arg_group_ref = shift;
+    my @arg_groups = @$arg_group_ref;
+    # Chop all the arg_groups according to the group with the smallest size
+    my $min;
+    foreach my $group (@arg_groups) {
+        # $group is an array ref here
+        my $current_size = scalar(@$group);
+        if (defined $min) {
+            if ($current_size < $min) {
+                $min = $current_size;
+            }
+        } else {
+            $min = $current_size;
+        }
+    }
+    $logger->debug("Determined that the number of times we can iterate with these arguments is $min.");
+
+    # Now that we know the minimum size, we can limit each group
+    my @limited_groups;
+    my $group_number = 0;
+    foreach my $group (@arg_groups) {
+        $group_number++;
+        my $size = scalar(@$group);
+        if ($size > $min) {
+            # Okay, this group is too big. Cut it down to size
+            $logger->debug("Cutting argument group number $group_number down to $min from $size.");
+            # Change teh array size by assigning to $#ARRAY
+            my @lesser = @$group;
+            $#lesser = $min - 1;
+            $group = \@lesser;
+        }
+        push (@limited_groups, $group);
+    }
+    return wantarray ? @limited_groups : \@limited_groups;
+}
 
 sub execute {
     $logger->debug("In execute.");
@@ -85,30 +124,35 @@ sub execute {
 
             for (my $group_index = 0; $group_index < $group_size; $group_index++) {
                 my $arg = $arg_group_ref->[$group_index]->[$arg_index];
+
+                # Replace $(Index) with the task id.
+                $arg =~ s/\$\(Index\)/$task_id/g;
+                
                 push(@exec, $arg);
             }
 
-                $logger->info("Invoking: ", sub { join(" ", @exec) } );
+            $logger->info("Invoking: ", sub { join(" ", @exec) } );
 
-                if ($logger->is_debug()) {
-                    $logger->debug("Arg list for invokation of $executable:\n", sub{ Dumper(\@exec) } );
-                    $logger->debug(sub { sprintf("Invoking %s. This is time #%d", $executable, $count) } );
-                    $logger->debug("==============================================================");
-                }
+            if ($logger->is_debug()) {
+                $logger->debug("Arg list for invokation of $executable:\n", sub{ Dumper(\@exec) } );
+                $logger->debug(sub { sprintf("Invoking %s. This is time #%d", $executable, $count) } );
+                $logger->debug("==============================================================");
+            }
 
-                system(@exec);
-                my $exit_value = $? >> 8;
+            system(@exec);
 
-                if ($logger->is_debug()) {
-                    $logger->debug("==============================================================");
-                    $logger->info(sub { sprintf("Completed run of %s. Exit value: %d", $executable, $exit_value) });
-                }
+            my $exit_value = $? >> 8;
 
-                if ($exit_value == 0) {
-                    $success++;
-                } else {
-                    $failed++;
-                }
+            if ($logger->is_debug()) {
+                $logger->debug("==============================================================");
+                $logger->info(sub { sprintf("Completed run of %s. Exit value: %d", $executable, $exit_value) });
+            }
+
+            if ($exit_value == 0) {
+                $success++;
+            } else {
+                $failed++;
+            }
         }
     } else {
         $logger->warn("No arguments! Just invoking the configured executable with no args.");
@@ -145,8 +189,8 @@ sub get_task_id {
         # Condor uses 0 based task IDs.
         $task_id = $ENV{CONDOR_TASK_ID} + 1;
         delete $ENV{CONDOR_TASK_ID};
-    } elsif ($grid_type eq "torque") {
-        # TODO: Determine how to get the Task ID in Torque
+    } elsif ($grid_type eq "torque" || $grid_type eq "pbs") {
+        # TODO: Determine how to get the Task ID in PBS/Torque
         $task_id = "";
     } else {
         $logger->logdie("Unsupported grid type: $grid_type");
@@ -158,7 +202,7 @@ sub print_usage {
     print "Usage:\n\n";
     print "$0 <remote_executable> <block_size> <MW_param_1> <MW_param_2> ... <MW_param_N>\n\n\n";
     print "Example:\n";
-    print "$0 <remote_executable> 100 param:--parameter 'file:/path/to/file:$(Name)'\n\n\n";
+    print "$0 <remote_executable> 100 param:--parameter 'file:/path/to/file:\$(Name)'\n\n\n";
     exit 1;
 }
 
@@ -190,7 +234,7 @@ sub validate_mw_params {
             } elsif ($type eq "PARAM") {
                 $logger->logdie("Only 2 fields are allowed for a type of PARAM.");
             } else {
-                # Throw an exception (Unrecognized 
+                # Throw an exception
                 $logger->logdie("Unrecognized parameter type of \"$type\".");
             }
         } else {
