@@ -9,12 +9,13 @@ use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 use Test::More tests => 7;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $base = basename($0);
 
-my $project = "test";
 my $outdir = "/usr/local/scratch";
 my $output1 = $outdir . "/${base}.1.out";
 my $output2 = $outdir . "/${base}.2.out";
@@ -51,6 +52,8 @@ my $line2 = read_first_line($output2);
 is($line2, "Linux", "Second command ran correctly.");
 
 cleanup();
+
+#############################################################################
 
 sub cleanup {
     eval {

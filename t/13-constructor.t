@@ -9,14 +9,16 @@ use File::Basename;
 use Log::Log4perl;
 use Test::More tests => 14;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $name = basename($0);
 my $output = "/usr/local/scratch/${name}.out";
-my $opsys = "Opteron";
+my $opsys = "Linux";
 
-my $htc = Grid::Request->new( project    => "test",
+my $htc = Grid::Request->new( project    => $project,
                               class      => "myclass",
                               command    => "/bin/echo",
                               error      => "/dev/null",
@@ -35,7 +37,7 @@ my $htc = Grid::Request->new( project    => "test",
 is($htc->command_count(), 1, "Number of command objects is correct.");
 is($htc->command(), "/bin/echo", "command() got the correct value.");
 is($htc->getenv(), 1, "getenv() got the correct value.");
-is($htc->project(), "test", "project() got the correct value.");
+is($htc->project(), $project, "project() got the correct value.");
 is($htc->class(), "myclass", "class() got the correct value.");
 is($htc->error(), "/dev/null", "error() got the correct value.");
 is($htc->initialdir(), "/usr/local/scratch", "initialdir() got the correct value.");

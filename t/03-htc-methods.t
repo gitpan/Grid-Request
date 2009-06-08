@@ -10,24 +10,25 @@
 
 use strict;
 use FindBin qw($Bin);
-use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 348;
 use Test::MockObject;
 use XML::Simple;
+use lib ("$Bin/../lib");
+use Grid::Request::Test;
+
+my $project = Grid::Request::Test->get_test_project();
 
 # Grid::Request uses Log::Log4perl, so we initialize a logger here in the test script.
 Log::Log4perl->init("$Bin/testlogger.conf");
 
 
-my @cmd_meths = qw( add_param add_anon_param class command end_time error
+my @cmd_meths = qw( add_param block_size class command end_time error
                     getenv project input initialdir output name params priority
                     start_time state times length email hosts opsys evictable
                     memory runtime pass_through cmd_type);
 
 my $params_count = 0;
-my $anon_count = 0;
-
 
 my $mock_command = Test::MockObject->new();
 # Here we are tricking Perl into thinking the following modules have already
@@ -42,7 +43,7 @@ $mock_command->fake_new( 'Grid::Request::Command' );
 
 # Now we will mock the methods contained in the Command class.
 $mock_command->mock("add_param", sub { $params_count++; } );
-$mock_command->mock("add_anon_param", sub { $anon_count++ } );
+$mock_command->set_always("block_size", 777);
 $mock_command->set_always("class", "class");
 $mock_command->set_always("command", "/usr/bin/ls");
 $mock_command->set_always("end_time", "00:00:05");
@@ -70,7 +71,7 @@ $mock_command->set_always("pass_through", "X");
 $mock_command->set_always("cmd_type", "htc");
 
 use_ok("Grid::Request");
-my $module = Grid::Request->new(project => "test");
+my $module = Grid::Request->new(project => $project);
 can_ok($module, "submit");
 can_ok($module, "submit_serially");
 can_ok($module, "submit_and_wait");
@@ -82,17 +83,15 @@ can_ok($module, "new_command");
 #close (STDERR);  # Close our STDERR to keep output clean for harnesses.
 
 # Instantiate the class.
-my $o = Grid::Request->new( project => "test" );
+my $o = Grid::Request->new( project => $project );
 
 is( $o->_com_obj, $mock_command,
              'new() should create and store a new Command object' );
 
 $o->add_param();
 is( $params_count, 1, "Test the add_param method.");
-$o->add_anon_param();
-is( $anon_count, 1, "Test the add_param method.");
 
-
+is( $o->block_size, 777, "Test the block_size method.");
 is( $o->class, "class", "Test the class method.");
 is( $o->command, "/usr/bin/ls", "Test the command method.");
 is( $o->email, 'test@example.com', "Test the email method.");
@@ -131,9 +130,8 @@ clear($mock_command, \@cmd_meths);
 # same information.
 $o->add_param();
 is( $params_count, 2, "Test the add_param method.");
-$o->add_anon_param();
-is( $anon_count, 2, "Test the add_param method.");
 
+is( $o->get_block_size, 777, "Test the block_size method as get_block_size.");
 is( $o->get_class, "class", "Test the class method as get_class.");
 is( $o->get_command, "/usr/bin/ls", "Test the command method as get_command.");
 is( $o->get_email, 'test@example.com', "Test the email method as get_email.");
@@ -160,7 +158,6 @@ is( $o->get_memory, 8, "Test the memory method as get_memory.");
 is( $o->get_runtime, 8, "Test the runtime method as get_runtime.");
 is( $o->get_pass_through, "X", "Test the pass_through method as get_pass_through.");
 is( $o->get_cmd_type, "htc", "Test the cmd_type method as get_cmd_type.");
-
 
 
 check_if_called($mock_command, \@cmd_meths);

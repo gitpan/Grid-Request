@@ -8,7 +8,10 @@ use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl qw(:easy);
 use Grid::Request;
+use Grid::Request::Test;
 use Test::More tests => 3;
+
+my $project = Grid::Request::Test->get_test_project();
 
 Log::Log4perl->init("$Bin/testlogger.conf");
 
@@ -19,7 +22,7 @@ cleanup();
 ok(! -e $output, "Output file does not exist.");
 
 # Formulate and submit the request
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/echo");
 $htc->output($output);
 

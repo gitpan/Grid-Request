@@ -4,13 +4,15 @@
 
 use strict;
 use FindBin qw($Bin);
-use lib ("$Bin/../lib");
-use Test::More tests => 4;
-use Log::Log4perl qw(:easy);
-use Grid::Request;
 use File::Basename;
+use Log::Log4perl qw(:easy);
+use Test::More tests => 4;
+use lib ("$Bin/../lib");
+use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $base = basename($0);
 # Create a simple shell script
@@ -38,7 +40,7 @@ eval {
 ok(-f $script, "Shell script created.");
 
 # Submit a request to the DRM to run the script
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command($script);
 $htc->output($output);
 

@@ -9,6 +9,10 @@ use File::Basename;
 use Log::Log4perl;
 use Test::More tests => 6;
 use Grid::Request;
+use Grid::Request::Test;
+
+my $project = Grid::Request::Test->get_test_project();
+
 
 Log::Log4perl->init("$Bin/testlogger.conf");
 
@@ -19,7 +23,7 @@ my $opsys = "Opteron";
 cleanup();
 ok(! -e $output, "Output file does not exist.");
 
-my $htc = Grid::Request->new(project => "test");
+my $htc = Grid::Request->new(project => $project);
 $htc->command("/bin/uname");
 $htc->add_param("-a");
 $htc->output($output);

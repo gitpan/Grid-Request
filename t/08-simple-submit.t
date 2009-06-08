@@ -8,10 +8,14 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 1;
 use Grid::Request;
+use Grid::Request::Test;
+
+my $project = Grid::Request::Test->get_test_project();
+
 
 Log::Log4perl->init("$Bin/testlogger.conf");
 
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/echo");
 
 my @ids = $htc->submit();

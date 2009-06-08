@@ -84,15 +84,17 @@ B<Returns:> $obj, a Grid::Request object.
 
 =head1 CONFIGURATION
 
-By default, the configuration file to that is used to determine what grid
-engine type to use and where to store temporary files is located in the
-invoking user's home directory under ~/.grid_request.conf. The file needs
-needs to have a [request] header and configurations for the 'tempdir' and
-'drm' parameters. The following is an example:
+By default, the configuration file that is used to determine what grid engine
+type to use and where to store temporary files is located in the invoking
+user's home directory under ~/.grid_request.conf. The file needs needs to have
+a [request] header and entries for the 'tempdir' and 'drm' parameters.  In addition,
+the file may also specify the path to a Log::Log4perl configuration file with the
+'log4perl-conf' entry name.The following is an example:
 
       [request]
-      tempdir=/path/to/grid/accessible/tmp/directory
       drm=SGE
+      tempdir=/path/to/grid/accessible/tmp/directory
+      log4perl-conf");
 
 The 'tempdir' directory must point to a directory that is accessible
 to the grid execution machines, for instance, over NFS...
@@ -137,7 +139,6 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-my $DEFAULT_BLOCK_SIZE = 100;
 our $VERSION = qw$Revision: 8365 $[1];
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
@@ -151,7 +152,7 @@ BEGIN: {
     require 5.006_00; # Make sure we're not running some old Perl.
 
     # Here we set up which methods go where.
-    my @command_meths = qw(account add_param class cmd_type command
+    my @command_meths = qw(account add_param block_size class cmd_type command
                            email end_time getenv project error hosts initialdir
                            input length memory name opsys output
                            priority start_time state times runtime evictable
@@ -163,6 +164,7 @@ BEGIN: {
 }
 
 
+# The constructor.
 sub new {
     my ($class, %args) = @_;
     my $self = bless {}, $class || ref($class);
@@ -192,38 +194,7 @@ sub new {
     return $self;
 }
 
-# Private method only. Used to configure logging.
-sub _init_config_logger {
-    my $config = shift;
-    # TODO: Since Grid::Request::HTC already parsed the default config file, use
-    # an accessor to get that config object rather than reparsing it
-    # here. This will involve adding an additional method in Grid::Request::HTC.
-    my $default_cfg_obj = Config::IniFiles->new( -file => $default_config );
-    my ($cfg, $same_configs);
-    if (defined $config && ($config eq $default_config)) {
-        $same_configs = 1;
-        $cfg = $default_cfg_obj;
-    } else {
-        $cfg = Config::IniFiles->new(-file   => $config,
-                                     -import => $default_cfg_obj);
-    }
-
-    # Parse the location of the logger configuration and initialize
-    # Log4perl, if it has not already been initialized.
-    my $logger_conf = $cfg->val($section, "log4perl-conf");
-    Log::Log4perl->init_once($logger_conf);
-
-    # TODO: The currently installed version of Log::Log4perl (0.34) exhibits
-    # a problem when you check the return value of init. Per the perldoc
-    # documentation, you should be able to do an "or die..." on the init
-    # call, but it fails every time then. Check later releases, and if it's
-    # fixed, install and uncomment the next line.
-    #    or croak "Could not initialize logging with $logger_conf.";
-    $logger = get_logger(__PACKAGE__);
-
-    return $cfg;
-}
-
+# Initialize the object. This is a private method. Do not call directly.
 sub _init {
     # Initialize the Request object. We need to parse the configuration
     # file, initialize the logger, create the Command object.
@@ -250,6 +221,38 @@ sub _init {
     $self->{_env} = [];       # To hold the environment.
     $self->{_session} = "";
     _init_drmaa();
+}
+
+# Private method only. Used to configure logging.
+sub _init_config_logger {
+    my $config = shift;
+    # TODO: Since Grid::Request::HTC already parsed the default config file, use
+    # an accessor to get that config object rather than reparsing it
+    # here. This will involve adding an additional method in Grid::Request::HTC.
+    my $default_cfg_obj = Config::IniFiles->new( -file => $default_config );
+    my ($cfg, $same_configs);
+    if (defined $config && ($config eq $default_config)) {
+        $same_configs = 1;
+        $cfg = $default_cfg_obj;
+    } else {
+        $cfg = Config::IniFiles->new(-file   => $config,
+                                     -import => $default_cfg_obj);
+    }
+
+    # Parse the location of the logger configuration and initialize
+    # Log4perl, if it has not already been initialized.
+    my $logger_conf = $cfg->val($section, "log4perl-conf");
+    if (defined $logger_conf) {
+        if (-f $logger_conf && -r $logger_conf) {
+            Log::Log4perl->init_once($logger_conf);
+        } else {
+            warn "Unable to configure logging with $logger_conf.\n";
+        }
+    }
+
+    $logger = get_logger(__PACKAGE__);
+
+    return $cfg;
 }
 
 # Accessors (private) used to return internal objects.
@@ -503,6 +506,48 @@ sub add_param {
     return $return;
 }
 
+=item $obj->block_size( [ $scalar | $code_ref ] );
+
+B<Description:> By default, Master/Worker (mw) jobs have a default block size
+of 100.  That is to say, that each worker on the grid will process 100 elements
+of the overall pool of job invocations. However, this isn't always appropriate.
+The user may override the default block size by calling this method and setting
+the block size to an alternate value (a positive integer). The user may also
+provide an anonoymous subroutine (code reference) so that the block size can be
+computed dynamically. If choosing to pass a subroutine , the code reference
+will be passed two arguments: the Grid::Request::Command object that will be
+invoked, and the number of elements that will be iterated over, in that order.
+The subroutine can then use these pieces of information to compute the block
+size. The subroutine MUST return a positive integer scalar or an exception will
+be thrown.
+
+    Examples:
+        # simple scalar block size
+        $request->block_size(1000);
+
+        # Passing a code ref, to make the block size dependent on the
+        # executable...
+        $request->block_size(
+                      sub {
+                          my $com_obj = shift;
+                          my $count = shift;
+
+                          my $exe = $com_obj->command();
+
+                          my $block_size = 50;
+                          if ($exe =~ m/sort/i) {
+                              $block_size = ($count > 100000) ? 10000 : 1000;
+                          }
+                          return $block_size;
+                      }
+                  );
+
+B<Parameters:> A positive integer scalar, or an anonymous subroutine/code
+reference.
+
+B<Returns:> The block size scalar or code reference if called as an accessor
+(no-arguments). If the block size has not been explicitly set, then the default
+block size is returned. No return if called as a mutator.
 
 =item $obj->class([$class]);
 
@@ -718,14 +763,15 @@ B<Returns:> When called with no arguments, returns the current name, or
 undef if not yet set. The name cannot be changed once a request is submitted.
 
 
-=item $obj->next_command();
+=item $obj->new_command();
 
 B<Description:> The module allows for requests to encapsulate multiple
 commands. This method will start work on a a new one by moving a cursor.
-Commands are processed in the order in which they are created. In addition,
-the only attribute that the new command inherits from the command that
-preceded it, is the project. However, users are free to change the project by
-calling the project() method...
+Commands are processed in the order in which they are created if they are
+submitted synchronously, or in parallel if submitted asynchronously (the
+default). In addition, the only attribute that the new command inherits from
+the command that preceded it, is the project. However, users are free to change
+the project by calling the project() method...
 
 B<Parameters:> None.
 
@@ -768,7 +814,7 @@ B<Returns:> When called with no arguments, returns the hosts if set.
 
 B<Description:> Used to set the minimum amount of physical memory needed.
 
-B<Parameters:> memory in megabytes, example 10MB, 512MB
+B<Parameters:> memory in megabytes. Examples: 1000MB, 5000MB
 
 B<Returns:> When called with no arguments, returns the memory if set.
 
@@ -781,7 +827,7 @@ request's requirements. Such pass throughs are forwarded unchanged. This is an
 advanced option and should only be used by those familiar with the the
 underlying DRM.
 
-B<Parameters:> $string
+B<Parameters:> $string, a scalar.
 
 B<Returns:> None.
 
@@ -1057,7 +1103,9 @@ sub _throw_drmaa {
 # implementation.
 sub _init_drmaa {
     $logger->debug("In _init_drmaa.");
-    unless ($DRMAA_INITIALIZED) {
+    if ($DRMAA_INITIALIZED) {
+        $logger->debug("DRMAA session aready initialized.");
+    } else {
         my ($error, $diagnosis) = drmaa_init("session=$SESSION_NAME");
         _throw_drmaa("Could not initialize DRMAA", $error, $diagnosis) if $error;
         $DRMAA_INITIALIZED = 1;
@@ -1282,23 +1330,32 @@ sub _submit_mw {
     # should be split up differently. This is why we pass $cmd, so that more
     # intelligent analysis may be done if configured...
     
-    my $block_size = $DEFAULT_BLOCK_SIZE;
+    my $block_size = $cmd->block_size();
+    if (ref($block_size) eq "CODE") {
+        $logger->debug("Detected a code reference for block size.");
+        my $block_size_calculator = $block_size;
+        $logger->debug("Invoking the code to determine the block size.");
+        $block_size = $block_size_calculator->($cmd, $min_count); 
+
+
+        if ($block_size =~ /^-?\d+$/) {                                                                          
+            if ($block_size > 0) {                                                                              
+                $logger->debug("Invocation yielded a block size of $block_size.");
+            } else {
+                Grid::Request::Exception->throw(                                                  
+                    "Block size code reference yielded an invalid result. Must be a positive integer.");
+            }
+        } else {
+            Grid::Request::Exception->throw(
+                    "Block size code reference yielded an invalid result.");
+        }
+    } else {
+        $logger->debug("block_size is a regular scalar: $block_size");
+    }
+
+    # Compute the number of workers to invoke based on the block size.
     my $workers = ceil($min_count / $block_size);
 
-    eval { 
-        my $package = "use Grid::Request::Util";
-        my $load_result = eval "require $package";
-        if (defined($load_result) && ($load_result == 1)) {
-            import $package;
-            # Use some (possibly user defined) technique to deterine the block
-            # size based on what kind of job is being executed on the grid
-            $block_size = Grid::Request::Util->determine_block_size($cmd, $min_count);
-            $workers = ceil($min_count / $block_size);
-        }
-    };
-    if ($@) {
-        $logger->error("Could not load the Grid::Request::Util module. Sticking with the worker count of $workers.");
-    }
     my $plurality = ($workers == 1) ? "worker" : "workers";
     $logger->info("This master/worker command requires $workers $plurality.");
 

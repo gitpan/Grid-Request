@@ -9,15 +9,17 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 2;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $base = basename($0);
 
 my $output = "/usr/local/scratch/${base}.out";
 my $opsys = "Linux,Solaris";
 
-my $htc = Grid::Request->new(project => "test");
+my $htc = Grid::Request->new(project => $project);
 $htc->command("/bin/uname");
 $htc->output($output);
 $htc->opsys($opsys);

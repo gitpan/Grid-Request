@@ -12,8 +12,10 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 7;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $name = basename($0);
 my $output = "/usr/local/scratch/${name}.out";
@@ -22,7 +24,7 @@ cleanup();
 
 # Set an environment variable that we will test for
 $ENV{HTC_TEST_ENV_VAR} = "somevalue";
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/usr/bin/env");
 $htc->output($output);
 
@@ -53,6 +55,8 @@ is(scalar(@env), 1, "Output had correct environment variable set.");
 like($env[0], qr/somevalue/, "Environment variable had correct value.");
 
 cleanup();
+
+#############################################################################
 
 sub cleanup {
     eval {

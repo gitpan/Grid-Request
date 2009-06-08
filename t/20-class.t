@@ -11,12 +11,14 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 4;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $class = "myclass";
 
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/echo");
 $htc->class("Assembly");
 

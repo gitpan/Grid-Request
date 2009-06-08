@@ -4,7 +4,7 @@ use strict;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 use Log::Log4perl;
-use Test::More tests => 22;
+use Test::More tests => 19;
 
 # Set up the logger specification through the conf file
 Log::Log4perl->init("$Bin/testlogger.conf");
@@ -13,7 +13,7 @@ Log::Log4perl->init("$Bin/testlogger.conf");
 BEGIN {
   use_ok('Grid::Request::HTC');
 }
-my @methods = qw(new debug project);
+my @methods = qw(new debug);
 
 can_ok( "Grid::Request::HTC", @methods); 
 
@@ -40,26 +40,20 @@ my %levels = ( debug => 5,
 my %names = reverse %levels;
 
 # Test the integer debug levels.
-foreach my $i ( sort values %levels ) {
-    $h->debug($i);
-    is($h->debug, $i, "Test numeric debug level $i.");
+foreach my $integer_debug_level ( sort values %levels ) {
+    $h->debug($integer_debug_level);
+    is($h->debug, $integer_debug_level, "Test numeric debug level $integer_debug_level.");
 }
 
 # Test the lower case debug level names.
-foreach my $i ( sort keys %names ) {
-    $h->debug($names{$i});
-    is($h->debug, $i, "Test string debug level $names{$i}.");
+foreach my $integer_debug_level ( sort keys %names ) {
+    $h->debug($names{$integer_debug_level});
+    is($h->debug, $integer_debug_level, "Test string debug level $names{$integer_debug_level}.");
 }
 
 # Test the upper case debug level names.
-foreach my $i ( sort keys %names ) {
-    my $name = uc($names{$i});
-    $h->debug($name);
-    is($h->debug, $i, "Test string debug level $name.");
+foreach my $integer_debug_level ( sort keys %names ) {
+    my $uc_name = uc($names{$integer_debug_level});
+    $h->debug($uc_name);
+    is($h->debug, $integer_debug_level, "Test string debug level $uc_name.");
 }
-
-# Test the project method.
-$h->project("real_project");
-is($h->project, "real_project", "Get project name.");
-$h->project("bogus_project");
-is($h->project, "bogus_project", "Set project name.");

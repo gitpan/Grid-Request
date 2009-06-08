@@ -7,9 +7,13 @@ use FindBin qw($Bin);
 use lib ("$Bin/../lib");
 use Test::More tests => 2;
 use Grid::Request;
-use Log::Log4perl qw(:easy);
+use Grid::Request::Test;
 
+
+use Log::Log4perl qw(:easy);
 Log::Log4perl->init("$Bin/testlogger.conf");
+
+my $project = Grid::Request::Test->get_test_project();
 
 my $domain = `hostname --fqdn`;
 chomp($domain) if defined($domain);
@@ -17,7 +21,7 @@ my @d = split(/\./, $domain);
 $domain = $d[-2] . '.' . $d[-1];
 my $email = getpwuid($>) . $domain;
 
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/echo");
 $htc->email($email);
 is($htc->email(), $email, "Email getter returns same value set.");

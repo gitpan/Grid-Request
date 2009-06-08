@@ -9,6 +9,9 @@ use File::Path;
 use lib ("$Bin/../lib");
 use Test::More;
 use Grid::Request;
+use Grid::Request::Test;
+
+my $project = Grid::Request::Test->get_test_project();
 
 my $name = basename($0);
 my $dir = "$Bin/test_data/test_dir";
@@ -28,7 +31,7 @@ create_dirs($dir, $outdir);
 ok(-d $dir, "Test directory exists.");
 ok(-d $outdir, "Test output directory exists.");
 
-my $htc = Grid::Request->new(project => "test");
+my $htc = Grid::Request->new(project => $project);
 $htc->command("/bin/echo");
 $htc->add_param('$(Name)', $dir, "DIR");
 $htc->output($outdir. '/$(Index).out');

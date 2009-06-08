@@ -1,5 +1,11 @@
 Revision history for Grid::Request
 
+0.4   - Added configurable block size for MM jobs with the block_size()
+        method.
+      - Added unit test for the block size method
+      - Added new Grid::Request::Test to remove hard coded project value
+        for test execution.
+
 0.3   - Fixed a problem with the grid_request_worker in which it could iterate
         past the smallest iterable argument if larger iterable arguments were
         passed in. Now a check is done to determine the smallest and truncate

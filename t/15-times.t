@@ -11,8 +11,10 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 4;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 my $name = basename($0);
 
@@ -41,7 +43,7 @@ chmod 0755, $script;
 ok(-f $script && -x $script, "Shell script created.");
 
 # Submit a request to the DRM to run the script
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command($script);
 $htc->times($times);
 

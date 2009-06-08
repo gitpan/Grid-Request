@@ -9,6 +9,11 @@ use Log::Log4perl qw(:easy);
 use Test::More;
 use File::Which;
 use Grid::Request;
+use Grid::Request::Test;
+
+Log::Log4perl->init("$Bin/testlogger.conf");
+
+my $project = Grid::Request::Test->get_test_project();
 
 my $qacct = which("qacct");
 if (! defined $qacct) {
@@ -18,11 +23,10 @@ if (! defined $qacct) {
 }
 
 my $account = random_word(8);
-Log::Log4perl->init("$Bin/testlogger.conf");
 
 my ($htc, @ids);
 eval {
-    $htc = Grid::Request->new( project => "test");
+    $htc = Grid::Request->new( project => $project );
     $htc->command("/bin/echo");
     $htc->account($account);
     @ids = $htc->submit_and_wait();
@@ -38,7 +42,7 @@ check_output($id, $account);
 
 # Now test a project with 2 words in it
 $account = random_word(5) . " " . random_word(5);
-my $htc2 = Grid::Request->new( project => "test" );
+my $htc2 = Grid::Request->new( project => $project );
 $htc2->account($account);
 $htc2->command("/bin/echo");
 
@@ -49,6 +53,7 @@ eval {
 ok(length($@)>0, "Got an error when using an account with whitespace.");
 is(scalar(@ids2), 0, "Got an empty number of ids.");
 
+#############################################################################
 
 sub check_output {
     my ($id, $expected_account) = @_;

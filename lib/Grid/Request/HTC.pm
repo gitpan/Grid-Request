@@ -171,30 +171,6 @@ sub debug {
     }
 }
 
-=item $obj->project([$project]);
-
-B<Description:> Used to set or get the project that the job
-is to be associated with. The project is necessary to track usage
-patterns of the infrastructure and to provide useful management
-information.
-
-B<Parameters:> $project, optional project argument.
-
-B<Returns:> $project, the currently set project.
-
-=cut
-
-sub project {
-    $logger->debug("In project.");
-    my ($self, @args) = @_;
-    if (scalar(@args)) {
-        $self->{project} = $args[0];
-    } else {
-       return $self->{project};
-    }
-}
-
-
 1;
 
 __END__

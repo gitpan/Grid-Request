@@ -36,6 +36,8 @@ use Log::Log4perl qw(get_logger);
 use File::Temp qw(tempfile);
 use Grid::Request::Param;
 
+my $DEFAULT_BLOCK_SIZE = 100;
+
 my $logger = get_logger(__PACKAGE__);
 
 use vars qw( %VALID_OS %VALID_PARAM_ARGS %VALID_STATE
@@ -138,10 +140,14 @@ sub _init {
     # This is important for systems such as psearch, which change
     # uid's in order to submit jobs on behalf of users.
     # We should use the real user id.
-    $self->{username} = getpwuid($<);
-    $logger->debug("Set the username according to effective uid: ",
+    $logger->debug("Setting the username according to effective uid: ",
                    "$self->{username}.");
+    $self->{username} = getpwuid($<);
 
+    # Set the default block size.
+    $logger->debug("Setting the default block size.");
+    $self->{block_size} = $DEFAULT_BLOCK_SIZE;
+    
     $logger->debug("Setting the project.");
     if ( exists($args{project}) && defined($args{project}) ) {
         $self->project($args{project});
@@ -151,7 +157,7 @@ sub _init {
         Grid::Request::Exception->throw($msg);
     }
 
-    foreach my $method qw(command class error getenv initialdir input output
+    foreach my $method qw(block_size command class error getenv initialdir input output
                           name priority times evictable length runtime hosts
                          ) {
         if (exists($args{$method}) && defined($args{$method})) {
@@ -184,6 +190,63 @@ sub account {
         $self->{account} = $account;
     } elsif (exists($self->{account}) && defined($self->{account})) {
         return $self->{account};
+    } else {
+        return undef;
+    }
+}
+
+
+=item $obj->block_size( [ $scalar | $code_ref ] );
+
+B<Description:> By default, Master/Worker jobs have a default block size of
+100.  That is to say, that each worker on the grid will process 100 elements of
+the overall pool of job invocations. However, this isn't always appropriate.
+The user may override the default block size by calling this method and setting
+the block size to an alternate value (a positive integer). The user may also
+provide an anonoymous subroutine (code reference) so that the block size can be
+computed dynamically. If choosing to pass a subroutine , the code will be passed
+two arguments: the command that will be invoked, and the number of elements that
+will be iterated over. The subroutine can then use these pieces of information
+to compute the block size. The subroutine MUST return a positive integer scalar
+or an exception will be thrown.
+
+B<Parameters:> A positive integer scalar, or an anonymous subroutine/code
+reference.
+
+B<Returns:> The block size scalar or code reference if called as an accessor
+(no-arguments). If the block size has not been explicitly set, then the default
+block size is returned. No return if called as a mutator.
+
+=cut
+
+sub block_size {
+    $logger->debug("In block_size");
+    my ($self, $block_size, @args) = @_;
+
+    if (scalar @args) {
+        Grid::Request::InvalidArgumentException->throw(
+            "Too many arguments passed to the 'block_size' method.");
+    }
+
+    if (defined $block_size) {
+        if (ref $block_size eq "CODE") {
+            $logger->debug("Got a code reference for the block size.");
+        } elsif (ref \$block_size eq "SCALAR") {
+            if ($block_size =~ /^-?\d+$/) {
+                if ($block_size <= 0) {
+                    Grid::Request::InvalidArgumentException->throw(
+                        "Scalar argument for 'block_size' must be a positive integer.");
+                } 
+            }
+        } else {
+            Grid::Request::InvalidArgumentException->throw(
+                "Illegal argument for 'block_size' method.");
+        }
+        
+        # If we get here, then we have an acceptable block size
+        $self->{block_size} = $block_size;
+    } elsif (exists($self->{block_size}) && defined($self->{block_size})) {
+        return $self->{block_size};
     } else {
         return undef;
     }
@@ -753,6 +816,7 @@ sub cmd_type {
 }
 
 
+# Documeted in Grid::Request
 sub hosts {
     $logger->debug("In hosts.");
     my ($self, $hosts, @args) = @_;
@@ -767,6 +831,7 @@ sub hosts {
     }
 }
 
+# Documeted in Grid::Request
 sub pass_through {
     $logger->debug("In pass_through");
     my ($self, $pass_through, @args) = @_;
@@ -783,6 +848,7 @@ sub pass_through {
 }
 
 
+# Documeted in Grid::Request
 sub memory {
     $logger->debug("In memory");
     my ($self, $memory, @args) = @_;
@@ -1042,6 +1108,7 @@ sub times {
     if (defined $times) {
         $logger->warn("The times method takes only one argument ",
                       "when making an assignment.") if @args;
+        # TODO: Not robust enough of a check
         if ($times =~ m/\D/) {
             $logger->error("Encountered non-numeric 'times' attribute.");
             return undef;

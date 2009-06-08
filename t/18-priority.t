@@ -10,13 +10,15 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 3;
 use Grid::Request;
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
+my $project = Grid::Request::Test->get_test_project();
 
 # Users are NOT able to raise their priority, so we have to lower
 # the priority to something less than the default of 0.
 my $priority = -18;
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/echo");
 $htc->priority($priority);
 
@@ -43,4 +45,3 @@ chomp($qacct_priority_line);
 my @out = split(/\s/, $qacct_priority_line);
 my $out_priority = $out[-1];
 is($out_priority, $priority, "Job got the correct priority.");
-

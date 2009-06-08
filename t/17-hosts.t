@@ -12,17 +12,19 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 3;
 use Grid::Request;
-
-my $name = basename($0);
+use Grid::Request::Test;
 
 Log::Log4perl->init("$Bin/testlogger.conf");
 
+my $project = Grid::Request::Test->get_test_project();
+my $name = basename($0);
+
 my $output = "/usr/local/scratch/${name}.out";
-my $host = "rlx-0-2-1";
+my $host = Grid::Request::Test->get_test_host();
 
 cleanup();
 
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/hostname");
 $htc->output($output);
 $htc->hosts($host);
@@ -40,6 +42,7 @@ is($line, $host, "Job ran on the correct host.");
 
 cleanup();
 
+#############################################################################
 
 sub cleanup {
     eval {

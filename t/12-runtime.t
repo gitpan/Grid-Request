@@ -10,6 +10,9 @@ use lib ("$Bin/../lib");
 use Log::Log4perl qw(:easy);
 use Test::More tests => 3;
 use Grid::Request;
+use Grid::Request::Test;
+
+my $project = Grid::Request::Test->get_test_project();
 
 Log::Log4perl->init("$Bin/testlogger.conf");
 
@@ -17,7 +20,7 @@ my $runtime = 1; # In minutes
 # Sleep for 10 times longer than what the runtime should allow
 my $sleeptime = $runtime*10*60; # In seconds
 
-my $htc = Grid::Request->new( project => "test" );
+my $htc = Grid::Request->new( project => $project );
 $htc->command("/bin/sleep");
 $htc->runtime($runtime);
 $htc->add_param($sleeptime);
