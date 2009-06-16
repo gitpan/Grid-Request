@@ -1,5 +1,7 @@
 Revision history for Grid::Request
 
+0.5   - Fixed minor perldoc glitch with log4perl-conf documentation.
+
 0.4   - Added configurable block size for MM jobs with the block_size()
         method.
       - Added unit test for the block size method

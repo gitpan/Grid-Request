@@ -94,7 +94,7 @@ the file may also specify the path to a Log::Log4perl configuration file with th
       [request]
       drm=SGE
       tempdir=/path/to/grid/accessible/tmp/directory
-      log4perl-conf");
+      log4perl-conf=/path/to/custom-log4perl.conf
 
 The 'tempdir' directory must point to a directory that is accessible
 to the grid execution machines, for instance, over NFS...
