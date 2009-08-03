@@ -3,7 +3,9 @@ lib/Grid/Request/Command.pm
 lib/Grid/Request/Exceptions.pm
 lib/Grid/Request/Param.pm
 lib/Grid/Request/Test.pm
+lib/Grid/Request/DRM/Condor.pm
 lib/Grid/Request/DRM/SGE.pm
+lib/Grid/Request/DRM/LSF.pm
 lib/Grid/Request/DRM/PBS.pm
 lib/Grid/Request/HTC.pm
 src/grid_request_worker

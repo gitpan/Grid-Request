@@ -98,12 +98,7 @@ the file may also specify the path to a Log::Log4perl configuration file with th
 
 The 'tempdir' directory must point to a directory that is accessible
 to the grid execution machines, for instance, over NFS...
-Users may provide an alternate path to a different configuration file
-by specifying the 'config' parameter to the constructor:
 
-  my $req = Grid::Request->new( project => "SomeProject",
-                                config => "/some/other/dir/request.conf",
-                              );
 Another way of specifying an alternate configuration is to define
 the GRID_CONFIG environment variable.
 
@@ -139,7 +134,7 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = qw$Revision: 8365 $[1];
+our $VERSION = '0.6';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 

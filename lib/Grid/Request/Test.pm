@@ -34,6 +34,8 @@ B<Returns:> A scalar.
 my $GR_PROJECT_NAME = "GRID_REQUEST_TEST_PROJECT";
 my $GR_HOST_NAME = "GRID_REQUEST_TEST_HOST";
 
+our $VERSION = '0.6';
+
 sub get_test_project {
     if (exists $ENV{$GR_PROJECT_NAME} &&
         defined $ENV{$GR_PROJECT_NAME} &&

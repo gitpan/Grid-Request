@@ -44,7 +44,7 @@ use vars qw( %VALID_OS %VALID_PARAM_ARGS %VALID_STATE
              %VALID_TYPE %VALID_CMD_TYPE );
 
 # The IO:Scalar and XML::Writer are pulled in with "require" if necessary.
-our $VERSION = qw$Revision: 8365 $[1];
+our $VERSION = '0.6';
 
 # Get rid of warnings about single usage.
 if ($^W) {
