@@ -134,7 +134,7 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = '0.6';
+our $VERSION = '0.7';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 
@@ -758,20 +758,6 @@ B<Returns:> When called with no arguments, returns the current name, or
 undef if not yet set. The name cannot be changed once a request is submitted.
 
 
-=item $obj->new_command();
-
-B<Description:> The module allows for requests to encapsulate multiple
-commands. This method will start work on a a new one by moving a cursor.
-Commands are processed in the order in which they are created if they are
-submitted synchronously, or in parallel if submitted asynchronously (the
-default). In addition, the only attribute that the new command inherits from
-the command that preceded it, is the project. However, users are free to change
-the project by calling the project() method...
-
-B<Parameters:> None.
-
-B<Returns:> None.
-
 =item $obj->opsys([$os]);
 
 B<Description:> The default operating system that the request will be processed
@@ -813,6 +799,42 @@ B<Parameters:> memory in megabytes. Examples: 1000MB, 5000MB
 
 B<Returns:> When called with no arguments, returns the memory if set.
 
+=item $obj->new_command();
+
+B<Description:> The module allows for requests to encapsulate multiple
+commands. This method will start work on a a new one by moving a cursor.
+Commands are processed in the order in which they are created if they are
+submitted synchronously, or in parallel if submitted asynchronously (the
+default). In addition, the only attribute that the new command inherits from
+the command that preceded it, is the project. However, users are free to change
+the project by calling the project() method...
+
+B<Parameters:> None.
+
+B<Returns:> None.
+
+=cut
+
+sub new_command {
+    $logger->debug("In new_command.");
+    
+    my ($self, @args) = @_;
+    if (scalar @args) {
+        Grid::Request::InvalidArgumentException->throw("No arguments are valid for new_command().");
+    }
+
+    # The only piece of information replicated from command to command is the
+    # project. So we first get the project and then use it to build the new
+    # Command object.
+    my $project = $self->project();
+
+    # Increment element pointer.
+    $command_element++;
+    $logger->debug("Creating Command object in element $command_element.");
+    $self->_com_obj_list->[$command_element] =
+        Grid::Request::Command->new( project => $project );
+}
+
 
 =item $obj->pass_through([pass_value]);
 
@@ -826,23 +848,6 @@ B<Parameters:> $string, a scalar.
 
 B<Returns:> None.
 
-=cut
-
-sub new_command {
-    $logger->debug("In new_command.");
-    my $self = shift;
-
-    # The only piece of information replicated from command to command is the
-    # project. So we first get the project and then use it to build the new
-    # Command object.
-    my $project = $self->project();
-
-    # Increment element pointer.
-    $command_element++;
-    $logger->debug("Creating Command object in element $command_element.");
-    $self->_com_obj_list->[$command_element] =
-        Grid::Request::Command->new( project => $project );
-}
 
 =item $obj->output([path]);
 
@@ -1270,7 +1275,7 @@ sub _submit_mw {
     $logger->debug("In _submit_mw.");
     my ($self, $jt, $cmd) = @_;
     unless (defined $jt && defined $cmd) {
-        Grid::Request::InvalidArgumentException->("Job template and/or command object are not defined.");
+        Grid::Request::InvalidArgumentException->throw("Job template and/or command object are not defined.");
     }
 
     $logger->debug("Setting the command executable.");
@@ -1419,13 +1424,13 @@ sub _submit_htc {
     $logger->debug("In _submit_htc.");
     my ($self, $jt, $cmd) = @_;
     unless (defined $jt && defined $cmd) {
-        Grid::Request::InvalidArgumentException->(
+        Grid::Request::InvalidArgumentException->throw(
             "Job template and/or command object are not defined.");
     }
 
     my $exe = $cmd->command();
     unless (defined $exe) {
-        Grid::Request::InvalidArgumentException->("Command executable is not defined.");
+        Grid::Request::InvalidArgumentException->throw("Command executable is not defined.");
     }
     $logger->debug("Setting the command executable.");
     my ($error, $diagnosis) = drmaa_set_attribute($jt, $DRMAA_REMOTE_COMMAND, $exe);

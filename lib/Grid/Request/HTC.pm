@@ -35,7 +35,7 @@ if (! defined $WORKER) {
 }
 
 use vars qw($config $client $server);
-our $VERSION = '0.6';
+our $VERSION = '0.7';
 
 if ($^W) {
     $VERSION = $VERSION;
