@@ -1,7 +1,7 @@
 package Grid::Request::DRM::Condor;
 
 use strict;
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 
 sub hostname {
 }

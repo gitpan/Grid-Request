@@ -18,7 +18,7 @@ Log::Log4perl->init("$Bin/testlogger.conf");
 
 my $name = basename($0);
 my $output = "/usr/local/scratch/${name}.out";
-my $opsys = "Opteron";
+my $opsys = "Linux";
 
 cleanup();
 ok(! -e $output, "Output file does not exist.");

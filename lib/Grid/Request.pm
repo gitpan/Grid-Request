@@ -134,7 +134,7 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 
@@ -313,11 +313,11 @@ sub _validate {
     $logger->debug("In _validate.");
     my $rv = 1;
     if ($self->project() =~ m/\s/) {
-        Grid::Request::Exception->throw("White space is not allowed for the project attribute.");
+        Grid::Request::Exception->throw("White space is not allowed for the 'project' attribute.");
     }
 
-    if ($self->account() =~ m/\s/) {
-        Grid::Request::Exception->throw("White space is not allowed for the account attribute.");
+    if (defined($self->account()) && length($self->account()) && $self->account() =~ m/\s/) {
+        Grid::Request::Exception->throw("White space is not allowed for the 'account' attribute.");
     }
 
     $logger->debug("Returning $rv.");
@@ -360,14 +360,16 @@ sub AUTOLOAD {
 # method. Don't modify or remove unless you know what you are doing.
 # This is a private method that is not to be invoked directly.
 sub DESTROY { 
-    # Close the DRMAA Session
-    $logger->debug("Closing the DRMAA session.");
-    my ($error, $diagnosis) = drmaa_exit();
-    if ($error) {
-        $logger->error("Error closing the DRMAA session: ",
-                 drmaa_strerror($error), $diagnosis);
-    } else {
-        $DRMAA_INITIALIZED = 0;
+    # Close the DRMAA Session (if necessary).
+    if ( $DRMAA_INITIALIZED != 0 ) {
+        $logger->debug("Closing the DRMAA session.");
+        my ($error, $diagnosis) = drmaa_exit();
+        if ($error) {
+            $logger->error("Error closing the DRMAA session: ",
+                     drmaa_strerror($error), $diagnosis);
+        } else {
+            $DRMAA_INITIALIZED = 0;
+        }
     }
 }
 
@@ -1184,8 +1186,8 @@ sub _cmd_base_drmaa {
     my $output = $cmd->output();
     my $error_path = $cmd->error();
     if (defined($output) || defined($error_path)) {
-        $output =~ s/\$\(Index\)/\$drmaa_incr_ph\$/g;
-        $error_path =~ s/\$\(Index\)/\$drmaa_incr_ph\$/g;
+        $output =~ s/\$\(Index\)/\$drmaa_incr_ph\$/g if defined($output);
+        $error_path =~ s/\$\(Index\)/\$drmaa_incr_ph\$/g if defined($error_path);
 
         $output ||= '/dev/null';
         $logger->debug("STDOUT will go to $output.");
@@ -1337,8 +1339,7 @@ sub _submit_mw {
         $logger->debug("Invoking the code to determine the block size.");
         $block_size = $block_size_calculator->($cmd, $min_count); 
 
-
-        if ($block_size =~ /^-?\d+$/) {                                                                          
+        if (defined($block_size) && length($block_size) && $block_size =~ /^-?\d+$/) {                                                                          
             if ($block_size > 0) {                                                                              
                 $logger->debug("Invocation yielded a block size of $block_size.");
             } else {

@@ -44,7 +44,7 @@ use vars qw( %VALID_OS %VALID_PARAM_ARGS %VALID_STATE
              %VALID_TYPE %VALID_CMD_TYPE );
 
 # The IO:Scalar and XML::Writer are pulled in with "require" if necessary.
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 
 # Get rid of warnings about single usage.
 if ($^W) {
@@ -140,8 +140,8 @@ sub _init {
     # This is important for systems such as psearch, which change
     # uid's in order to submit jobs on behalf of users.
     # We should use the real user id.
-    $logger->debug("Setting the username according to effective uid: " . $self->{username});
     $self->{username} = getpwuid($<);
+    $logger->debug("Set the username to the effective UID: " . $self->{username});
 
     # Set the default block size.
     $logger->debug("Setting the default block size.");

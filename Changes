@@ -1,4 +1,13 @@
-Revision history for Grid::Request
+Revision history for Grid::Request.
+
+0.8   - Some improvements to test scripts for greater reliability.
+      - Skipping unit tests unless the configured grid is SGE.
+      - Problem corrected with DESTROY if drmaa_init wasn't called.
+      - Eliminated some string concatenations with possibly undefined
+        variables.
+
+0.7   - New test for the new_command method not to accept arguments.
+        Fixed problems with missing method names on exception throws.
 
 0.6   - Slight adjustment to configuration section of the perldoc.
 

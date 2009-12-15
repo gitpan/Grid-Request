@@ -38,7 +38,20 @@ my $id = $ids[0];
 diag("Id $id.");
 ok($id > 0, "Got a valid id.");
 
-check_output($id, $account);
+# TODO: From here down, the logic to determine if setting the
+# name really worked, is DRM dependent, specifically SGE dependent.
+# Skip the tests if we are not using SGE.
+my $config_file = Grid::Request::HTC->config();
+my $config = Config::IniFiles->new(-file => $config_file);
+my $grid_type = $config->val("request", "drm");
+
+SKIP: {
+    my $why = "The configured grid type is NOT 'SGE'.";
+    my $skip = lc($grid_type) ne "sge";
+    skip $why, 3 if $skip;
+
+    check_output($id, $account);
+}
 
 # Now test a project with 2 words in it
 $account = random_word(5) . " " . random_word(5);
@@ -59,7 +72,11 @@ sub check_output {
     my ($id, $expected_account) = @_;
 
     # sometimes there is a delay before data becomes available to qacct.
-    sleep 3;
+    my $ready = wait_for_qacct($id);
+    if (! $ready) {
+        print STDERR "Unable to query for job status.\n";
+        exit 1;
+    }
 
     open (QACCT, "$qacct -j $id |");
     my @lines = <QACCT>;
@@ -93,4 +110,21 @@ sub random_word {
        $word .= $chars[$_rand];
     }
     return $word;
+}
+
+sub wait_for_qacct {
+    my $id = shift;
+    sleep 1;
+    my $ready = 0;
+    for my $attempt qw(1 2 3 4) {
+        sleep $attempt;
+        system("qacct -j $id 1>/dev/null 2>/dev/null");
+
+        my $exit_value = $? >> 8;
+        if ($exit_value == 0) {
+            $ready = 1;
+            last;
+        }
+    }
+    return $ready;
 }

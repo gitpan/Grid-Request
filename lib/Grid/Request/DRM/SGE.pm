@@ -3,7 +3,7 @@ package Grid::Request::DRM::SGE;
 use strict;
 use Log::Log4perl qw(get_logger);
 
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -109,12 +109,8 @@ sub project {
 sub class {
     $logger->debug("In class.");
     my ($self, $class) = @_;
-    my $spec = "";
-    if (lc($class) eq "assembly") {
-        $spec .= "-l msc";
-    }
-    $logger->debug(qq|Returning "$spec".|);
-    return $spec;
+    $logger->debug(qq|'class' doesn't do anyting in this drm package.|);
+    return "";
 }
 
 sub runtime {
