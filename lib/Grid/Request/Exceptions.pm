@@ -1,7 +1,7 @@
 package Grid::Request::Exceptions;
 
 use strict;
-our $VERSION = '0.8';
+our $VERSION = '0.9';
 
 use Exception::Class ( 'Grid::Request::Exception',
   'Grid::Request::InvalidArgumentException'=> { isa => "Grid::Request::Exception" },

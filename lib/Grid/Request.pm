@@ -134,7 +134,7 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = '0.8';
+our $VERSION = '0.9';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 
@@ -925,7 +925,7 @@ sub set_env_list {
         push(@valid, $arg);
     }
 
-    $self->[5] = \@valid;
+    $self->{_env} = \@valid;
 
     # If the user has set their own environment with set_envlist, then we
     # assume that they want getenv to be true. We do it for them here to save

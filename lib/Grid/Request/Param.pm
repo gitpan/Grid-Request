@@ -36,7 +36,7 @@ my %VALID_TYPE = ( ARRAY => 1,
 
 my $logger = get_logger(__PACKAGE__);
 
-our $VERSION = '0.8';
+our $VERSION = '0.9';
 if ($^W) {
     $VERSION = $VERSION;
 }

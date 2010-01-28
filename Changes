@@ -1,5 +1,7 @@
 Revision history for Grid::Request.
 
+0.9   - Bug fixed with setting of environment variables.
+
 0.8   - Some improvements to test scripts for greater reliability.
       - Skipping unit tests unless the configured grid is SGE.
       - Problem corrected with DESTROY if drmaa_init wasn't called.
