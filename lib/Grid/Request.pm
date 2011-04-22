@@ -12,7 +12,10 @@ such as Sun Grid Engine (SGE) or Condor.
 =head1 SYNOPSIS
 
  use Grid::Request;
- my $request = Grid::Request->new( project => "SomeProject" );
+ my $request = Grid::Request->new();
+
+ # Optionally set the job's project, if the configured scheduler requires it.
+ $request->project("MyProject");
 
  $request->times(2);
  $request->command("/path/to/executable");
@@ -41,8 +44,8 @@ such as Sun Grid Engine (SGE) or Condor.
  my $times_wrong_way = $request->get_times(3);
 
  # Finally, submit the request...
- my @id = $request->submit();
- print "The first ID for this request is $id[0].\n";
+ my @job_ids = $request->submit();
+ print "The first ID for this request is $job_ids[0].\n";
 
  # ...and wait for the results. This step is not necessary, only
  # if you wish to block, or wait for the request to complete before
@@ -61,6 +64,10 @@ Grid::Request->new(%args);
 B<Description:> This is the object constructor. Parameters are passed to
 the constructor in the form of a hash. Examples:
 
+  my $req = Grid::Request->new();
+
+  or
+
   my $req = Grid::Request->new( project => "SomeProject" );
 
   or
@@ -74,11 +81,9 @@ the constructor in the form of a hash. Examples:
 Users may also add a "debug" flag to the constructor call for increased
 reporting:
 
-  my $req = Grid::Request->new( project => "SomeProject",
-                                debug   => 1 );
+  my $req = Grid::Request->new( debug => 1 );
 
-B<Parameters:> Only the 'project' parameter is mandatory when calling the
-constructor.
+B<Parameters:> A hash of request configuration options.
 
 B<Returns:> $obj, a Grid::Request object.
 
@@ -134,7 +139,7 @@ my $WORKER = $Grid::Request::HTC::WORKER;
 
 my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = '0.9';
+our $VERSION = '0.10';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 
@@ -323,7 +328,6 @@ sub _validate {
     $logger->debug("Returning $rv.");
     return $rv;
 }
-
 
 
 # This method knows how to dispatch method invocations to the proper module
@@ -695,12 +699,11 @@ sub is_submitted {
 }
 =item $obj->project([$project]);
 
-B<Description:> The project attribute is used to affiliate usage of the DRM with
-a particular administrative project. This will allow for more effective
+B<Description:> The project attribute is used to affiliate usage of the DRM
+with a particular administrative project. This will allow for more effective
 control and allocation of resources, especially when high priority projects
-must be fulfilled. Therefore, the "project" is mandatory when the request object
-is built. However, the user may still change the project attribute as long as
-the job has not yet been submitted (after submission most attributes are
+must be fulfilled. The caller may change the project setting as long as the job
+has not yet been submitted (after submission most request attributes are
 locked).
 
 B<Parameters:> The first parameter will be used to set (or reset)
@@ -808,8 +811,8 @@ commands. This method will start work on a a new one by moving a cursor.
 Commands are processed in the order in which they are created if they are
 submitted synchronously, or in parallel if submitted asynchronously (the
 default). In addition, the only attribute that the new command inherits from
-the command that preceded it, is the project. However, users are free to change
-the project by calling the project() method...
+the command that preceded it, is the project (if set). However, users are free
+to change the project by calling the project() method...
 
 B<Parameters:> None.
 
@@ -832,9 +835,14 @@ sub new_command {
 
     # Increment element pointer.
     $command_element++;
+
     $logger->debug("Creating Command object in element $command_element.");
-    $self->_com_obj_list->[$command_element] =
-        Grid::Request::Command->new( project => $project );
+    if (defined $project && length($project)) {
+        $self->_com_obj_list->[$command_element] =
+            Grid::Request::Command->new( project => $project );
+    } else {
+        $self->_com_obj_list->[$command_element] = Grid::Request::Command->new();
+    }
 }
 
 

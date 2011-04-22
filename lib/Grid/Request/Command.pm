@@ -44,7 +44,7 @@ use vars qw( %VALID_OS %VALID_PARAM_ARGS %VALID_STATE
              %VALID_TYPE %VALID_CMD_TYPE );
 
 # The IO:Scalar and XML::Writer are pulled in with "require" if necessary.
-our $VERSION = '0.9';
+our $VERSION = '0.10';
 
 # Get rid of warnings about single usage.
 if ($^W) {
@@ -147,17 +147,8 @@ sub _init {
     $logger->debug("Setting the default block size.");
     $self->{block_size} = $DEFAULT_BLOCK_SIZE;
     
-    $logger->debug("Setting the project.");
-    if ( exists($args{project}) && defined($args{project}) ) {
-        $self->project($args{project});
-    } else {
-        my $msg = "Mandatory 'project' attribute not provided.";
-        $logger->fatal($msg);
-        Grid::Request::Exception->throw($msg);
-    }
-
     foreach my $method qw(block_size command class error getenv initialdir input output
-                          name priority times evictable length runtime hosts
+                          name project priority times evictable length runtime hosts
                          ) {
         if (exists($args{$method}) && defined($args{$method})) {
             $logger->info("Initializing $method.");
