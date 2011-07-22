@@ -1,5 +1,11 @@
 Revision history for Grid::Request.
 
+0.11    - Made tests more robust. Using auxiliary methods in the Test module.
+        - POD forthe runtime() method added.
+        - Tests skip plans when support is missing or misconfiguration is detected.
+        - Better tests when run under the Condor DRM.
+        - Added show_invocations with shell escaping.
+
 0.10    - Removed required project setting in constructor by popular request.
 
 0.9     - Bug fixed with setting of environment variables.

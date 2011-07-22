@@ -137,9 +137,8 @@ my $section = $Grid::Request::HTC::config_section;
 
 my $WORKER = $Grid::Request::HTC::WORKER;
 
-my $command_element = 0;
 my $DRMAA_INITIALIZED = 0;
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 my $SESSION_NAME = lc(__PACKAGE__);
 $SESSION_NAME =~ s/:+/_/g;
 
@@ -211,7 +210,7 @@ sub _init {
 
     $logger->info("Creating the first Command object.");
     # holds an array of command elements.
-    $self->{_cmd_ele}->[$command_element] =
+    $self->{_cmd_ele}->[0] =
         Grid::Request::Command->new(%$command_args_ref);
 
     $self->{_drm} = _load_drm($cfg);
@@ -257,8 +256,8 @@ sub _init_config_logger {
 
 # Accessors (private) used to return internal objects.
 sub _drm { return $_[0]->{_drm}; }
-sub _com_obj_list { return $_[0]->{_cmd_ele}; }
-sub _com_obj { return $_[0]->{_cmd_ele}->[$command_element]; }
+sub _com_obj_list { return wantarray ? @{ $_[0]->{_cmd_ele} } : $_[0]->{_cmd_ele}; }
+sub _com_obj { return $_[0]->{_cmd_ele}->[-1]; }
 sub _config { return $_[0]->{_config}; }
 
 sub _load_drm {
@@ -317,7 +316,7 @@ sub _validate {
     my $self = shift;
     $logger->debug("In _validate.");
     my $rv = 1;
-    if ($self->project() =~ m/\s/) {
+    if ($self->project() && ($self->project() =~ m/\s/)) {
         Grid::Request::Exception->throw("White space is not allowed for the 'project' attribute.");
     }
 
@@ -404,7 +403,8 @@ argument, no logic is attempted to interpret the string provided. The module
 simply adds the specified string verbatim to the list of parameters when
 building the command line to invoke on the grid.  If 3 parameters are passed,
 then they are read as "key", "value", "type". The parameter 'type' can be
-either "ARRAY", "DIR", "PARAM", or "FILE" (the default is "PARAM").
+either "ARRAY", "DIR", "PARAM", or "FILE" (the default is "PARAM"). Any other
+number of parameters passed will yield an error.
 
 The 'type' is used in the following way to aid in the parallelization of
 processes: If ARRAY is used, the job will be iterated over the elements of the
@@ -740,18 +740,6 @@ B<Returns:> When called with no arguments, returns the currently set
 initialdir, or undef if not yet set.
 
 
-=item $obj->length([length]);
-
-B<Description:> This method is used to characterize how long the request
-is expected to take to complete. For long running requests, an attempt to
-match appropriate resources is made. If unsure, leave this setting unset.
-
-B<Parameters:> "short", "medium", "long". No attempt is made to validate
-the length passed in when used as a setter.
-
-B<Returns:> The currently set length attribute (when called with no
-arguments).
-
 =item $obj->name([name]);
 
 B<Description:> The name attribute for request objects is optional and is
@@ -834,14 +822,15 @@ sub new_command {
     my $project = $self->project();
 
     # Increment element pointer.
-    $command_element++;
+    my @objs = $self->_com_obj_list;
+    my $cmd_len = scalar(@objs);
 
-    $logger->debug("Creating Command object in element $command_element.");
+    $logger->debug("Creating new Command object in element $cmd_len.");
     if (defined $project && length($project)) {
-        $self->_com_obj_list->[$command_element] =
+        $self->_com_obj_list->[$cmd_len] =
             Grid::Request::Command->new( project => $project );
     } else {
-        $self->_com_obj_list->[$command_element] = Grid::Request::Command->new();
+        $self->_com_obj_list->[$cmd_len] = Grid::Request::Command->new();
     }
 }
 
@@ -901,11 +890,20 @@ B<Parameters:> Scalar priority value.
 
 B<Returns:> The current priority, or undef if unset.
 
-=cut
+=item $obj->runtime([minutes]);
+
+B<Description:> Cap the runtime of the job on the DRM. Most DRM systems
+have a mechanism to limit the maximum amount of time a job can run. This
+method accepts a value in minutes.
+
+B<Parameters:> Scalar containing a positive integer nubmer of minutes.
+
+B<Returns:> The current runtime limit if called as a getter, or undef if unset.
+
 
 =item $obj->set_env_list(@vars);
 
-B<Description:> This method is used to establish the environment that a a
+B<Description:> This method is used to establish the environment that a
 request to the grid should run under. Users may pass this method a list of
 strings that are in "key=value" format. The keys will be converted into
 environment variables set to "value" before execution of the command is begun.
@@ -939,6 +937,63 @@ sub set_env_list {
     # assume that they want getenv to be true. We do it for them here to save
     # them an extra step.
     $self->getenv(1);
+}
+
+
+=item $obj->show_invocations();
+
+B<Description:> Show what will be executed on the DRM. An attempt is made
+to excape shell sensitive characters so that the commands can be copied
+and pasted for test execution.
+
+B<Parameters:> None.
+
+B<Returns:> None. The method print to STDOUT.
+
+=cut
+
+sub show_invocations {
+    my $self = shift;
+
+    # Remember, we may have multiple command objects...
+    my @command_objs = $self->_com_obj_list();
+
+    # Iterate over them...
+    my $command_count = 1;
+
+    eval { require Grid::Request::JobFormulator };
+    my $formulator = Grid::Request::JobFormulator->new();
+
+    foreach my $com_obj (@command_objs) {
+        print "Command #" . $command_count . "\n"; 
+        my $exe = $com_obj->command();
+        my $block_size = $com_obj->block_size();
+        my @params = $com_obj->params();
+        my @param_strings = ();
+
+        foreach my $param_obj (@params) {
+            my $param_str = $param_obj->to_string();
+            push (@param_strings, $param_str);
+        }
+
+        my @invocations = $formulator->formulate($block_size, $exe, @param_strings);
+        foreach my $invocations (@invocations) {
+            my @cli = @$invocations;
+            my @esc_cli = _esc_chars(@cli);
+            print join(" ", @esc_cli) . "\n";
+        }
+        
+        $command_count++;
+    }
+}
+
+sub _esc_chars {
+    # will change, for example, a!!a to a\!\!a
+    my @cli = @_;
+    my $e;
+    @cli = map { $e =$_; $e =~ s/([;<>\*\|`&\$!#\(\)\[\]\{\}:'"])/\\$1/g; $e } @cli;
+    @cli = map { if ($_ =~ m/\s/) { '"' . $_ . '"' } else { $_ } } @cli;
+    return @cli;
 }
 
 
@@ -1151,23 +1206,41 @@ sub _drmaa_submit {
     my @ids;
     my $total = $self->command_count();
     my $count = 1;
-    for (my $cmd = 0; $cmd < $total; $cmd++) {
-        my $cmd_obj = $self->_com_obj_list->[$cmd];
-        $logger->debug("Submitting command $count/$total.");
-        my $jt = $self->_cmd_base_drmaa($cmd_obj);
-        $logger->debug("Got a good job template.") if defined $jt;
-        my @sub_ids;
-        if ($cmd_obj->cmd_type() eq "mw") {
-            @sub_ids = $self->_submit_mw($jt, $cmd_obj);
-        } else {
-            @sub_ids = $self->_submit_htc($jt, $cmd_obj);
+
+    eval {
+        for (my $cmd = 0; $cmd < $total; $cmd++) {
+            my $cmd_obj = $self->_com_obj_list->[$cmd];
+            $logger->debug("Submitting command $count/$total.");
+            my $jt = $self->_cmd_base_drmaa($cmd_obj);
+            $logger->debug("Got a good job template.") if defined $jt;
+            my @sub_ids;
+            if ($cmd_obj->cmd_type() eq "mw") {
+                @sub_ids = $self->_submit_mw($jt, $cmd_obj);
+            } else {
+                @sub_ids = $self->_submit_htc($jt, $cmd_obj);
+            }
+            if ($serially) {
+                _sync_ids($cmd_obj);
+            }
+            push @ids, @sub_ids;
+            $count++;
         }
-        if ($serially) {
-            _sync_ids($cmd_obj);
+    };
+
+    my $e;
+    if ($e = Exception::Class->caught("Grid::Request::DRMAAException")) {
+        $logger->fatal("Unable to submit: " . $e->diagnosis() . ": " . $e->drmaa() );
+        $e->rethrow();
+    } elsif ( $e = Exception::Class->caught("Grid::Request::Exception") ) {
+        $logger->fatal("Unable to submit: " . $e->error());
+        $e->rethrow();
+    } else {
+        $e = Exception::Class->caught();
+        if ($e) {
+            ref $e ? $e->rethrow : $logger->logcroak("Unable to submit: $e");
         }
-        push @ids, @sub_ids;
-        $count++;
     }
+
     $logger->debug("Finished submitting.");
     return wantarray ? @ids : \@ids;
 }
@@ -1238,7 +1311,7 @@ sub _cmd_base_drmaa {
     my $email = $cmd->email();
     if ($email) {
         $logger->info("Setting DRM to not block emails.");
-        ($error, $diagnosis) = drmaa_set_attribute($jt, $DRMAA_BLOCK_EMAIL, 0);
+        ($error, $diagnosis) = drmaa_set_attribute($jt, $DRMAA_BLOCK_EMAIL, "0");
         _throw_drmaa("Unable to unblock emails.", $error, $diagnosis) if $error;
         $logger->info("Setting the job email.");
         ($error, $diagnosis) = drmaa_set_vector_attribute($jt, $DRMAA_V_EMAIL, [$email]);
@@ -1246,7 +1319,7 @@ sub _cmd_base_drmaa {
     }
  
     my @drm_methods = qw(account hosts opsys evictable priority memory
-                         length project class runtime);
+                         project class runtime);
     my @native_attrs;
     foreach my $method (@drm_methods) {
         my $val = $cmd->$method;
